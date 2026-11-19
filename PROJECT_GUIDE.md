@@ -1,166 +1,212 @@
-# Banking Transaction Simulator - Project Documentation & Code Walkthrough
+# Apex Bank - Digital Banking Transaction Simulator
+## Project Documentation & Complete Viva Guide (3rd Semester)
 
-This document provides an in-depth, viva-oriented explanation of the entire project, its architecture, syllabus alignment, classes, methods, and execution flow.
-
----
-
-## 1. Syllabus & Academic Alignment (Chitkara University)
-
-This project is tailored strictly to the concepts taught in **Lectures 1 to 25** of **25CSE0202 (Programming in Java)**:
-
-* **Unit 1: Object-Oriented Programming (OOP) & Exception Handling**
-  * **Encapsulation**: Private fields (`balance`, `accountNumber`) with getter methods and safe mutators.
-  * **Abstraction**: Abstract base class `Account` with abstract methods (`withdraw`, `getAccountType`, `getAccountSummary`).
-  * **Inheritance**: Subclasses `SavingsAccount` and `CurrentAccount` extending `Account`.
-  * **Polymorphism**: Dynamic method dispatch where `withdraw()` behaves differently for Savings (minimum balance rule) and Current (overdraft rule).
-  * **Custom Exception Handling**: Custom hierarchy (`BankingException`, `InsufficientBalanceException`, `InvalidAmountException`, `AccountNotFoundException`) handled with `try-catch-finally`, `throw`, and `throws`.
-* **Unit 2: Java Collections Framework**
-  * **`HashMap<String, Account>`**: Fast $O(1)$ key-value account lookup by account number.
-  * **`ArrayList<Transaction>`**: Dynamic ordered list maintaining the entire ledger history.
-  * **Custom `Comparator<Transaction>`**: Traditional anonymous class implementation to sort transactions by timestamp or amount.
-  * **Standard Loops**: Plain `for-each` loops and conditional logic (no Java 8 Streams, no Lambdas, no Threads, no Database).
+This comprehensive guide covers everything implemented in the project, explaining every class, data structure, syllabus concept (Chitkara University 25CSE0202 - Programming in Java), security mechanism, and likely viva/evaluation questions.
 
 ---
 
-## 2. Project File Structure
+## 1. Syllabus & Academic Mapping (Lectures 1 to 25)
 
-The project has been unified into clean, self-contained files:
+The project is strictly crafted to reflect the content taught up to **Unit 2 (before Multithreading/Threads)**, written in authentic student-level Java:
+
+| Syllabus Unit & Topic | Implementation in this Project |
+| :--- | :--- |
+| **Unit 1: Classes & Encapsulation** | `Account`, `SavingsAccount`, `CurrentAccount`, and `Transaction` classes with fields, constructors, and methods. |
+| **Unit 1: Abstraction** | `abstract class Account` defining core state with abstract method `withdraw(double amt)` and `getAccountType()`. |
+| **Unit 1: Inheritance** | `SavingsAccount extends Account` and `CurrentAccount extends Account`. Subclasses call `super(...)`. |
+| **Unit 1: Polymorphism** | Dynamic method dispatch on `withdraw(double amt)`: Savings enforces minimum balance, while Current implements overdraft facility. |
+| **Unit 1: Custom Exception Handling** | Custom checked exceptions (`InsufficientBalanceException`, `InvalidAmountException`, `AccountNotFoundException`) handled with `try-catch`, `throw`, and `throws`. |
+| **Unit 2: Java Collections Framework** | • `HashMap<String, Account>`: For $O(1)$ fast account lookups.<br>• `ArrayList<Transaction>`: For recording sequential ledger passbook history.<br>• Anonymous `Comparator<Transaction>`: For sorting transactions by amount without Lambdas/Streams. |
+| **Web Server & UI (Full-Stack)** | Built-in JDK `com.sun.net.httpserver.HttpServer` on port `8080` serving a modern monochrome Customer Portal (HTML, CSS, JS) with PIN verification, instant transfers, cash deposit, and passbook. |
+
+---
+
+## 2. Project Directory Structure
 
 ```text
 Java/project/
 │
-├── BankingApplication.java   # Complete Java source code (all classes & main method)
-├── PROJECT_GUIDE.md          # Comprehensive explanation and viva preparation guide (this file)
-├── README.md                 # Project summary and quick start
-└── .gitignore                # Git ignore rules for compiled binaries
+├── Account.java              # Abstract base class for all accounts
+├── SavingsAccount.java       # Savings account logic (Min balance Rs. 1,000)
+├── CurrentAccount.java       # Current account logic (Overdraft facility)
+├── Transaction.java          # Simple transaction ledger data model
+├── BankingException.java      # Custom exceptions (InsufficientBalance, InvalidAmount, etc.)
+├── BankManager.java          # Collections manager (HashMap, ArrayList, business logic)
+├── SimpleHttpServer.java     # Built-in lightweight HTTP server & REST APIs
+├── Main.java                 # Entrypoint: starts web server and console CLI
+├── start_backend.bat         # 1-click script to compile and launch the project
+├── PROJECT_GUIDE.md          # Complete project and viva documentation (this file)
+│
+└── frontend/                 # Customer Portal Web UI
+    ├── index.html            # User portal: onboarding, virtual debit card, tabs
+    ├── style.css             # Modern monochrome dark theme styling
+    └── script.js             # Client-side controller communicating via REST fetch()
 ```
 
 ---
 
-## 3. Detailed Component & Class Breakdown
+## 3. Deep Dive into Every Backend Java File
 
-All components are cleanly organized inside [BankingApplication.java](file:///c:/Users/parvj/OneDrive/Desktop/FOLDERS/sem%203/Java/project/BankingApplication.java):
-
-### Section A: Custom Exceptions (Unit 1)
-| Class Name | Superclass | Purpose | When It Is Thrown |
-| :--- | :--- | :--- | :--- |
-| `BankingException` | `Exception` | Base checked exception for the banking domain. | General domain errors (e.g., empty customer name, same source/destination account). |
-| `InsufficientBalanceException` | `BankingException` | Handles balance violations. | When a Savings account breaches the Rs. 1,000 minimum balance, or Current account exceeds its overdraft limit. |
-| `InvalidAmountException` | `BankingException` | Handles input value validation. | When deposit, withdrawal, or transfer amount is $\le 0$. |
-| `AccountNotFoundException` | `BankingException` | Handles missing accounts. | When a user looks up an account number not present in the `HashMap`. |
+### 1. `BankingException.java`
+Contains domain-specific custom exception classes extending `java.lang.Exception`:
+* **`InsufficientBalanceException`**: Thrown when a withdrawal violates the ₹1,000 minimum balance (Savings) or exceeds the overdraft limit (Current).
+* **`InvalidAmountException`**: Thrown if deposit, withdrawal, or transfer amounts are $\le 0$ or opening balance is negative.
+* **`AccountNotFoundException`**: Thrown when searching for an account number that does not exist in the bank's `HashMap`.
 
 ---
 
-### Section B: Transaction Model & Enum (Unit 1)
-* **`enum TransactionType`**:
-  * Values: `DEPOSIT`, `WITHDRAWAL`, `TRANSFER_IN`, `TRANSFER_OUT`.
-  * Enforces type safety so invalid transaction categories cannot be assigned.
-* **`class Transaction`**:
-  * Fields: `transactionId`, `accountNumber`, `type`, `amount`, `balanceAfter`, `targetAccountNumber`, `description`, `timestamp`.
-  * Formatted output in `toString()`: Uses `LocalDateTime` and `DateTimeFormatter` to output clear tabular mini-statement entries.
-
----
-
-### Section C: OOP Account Hierarchy (Unit 1)
-
-#### 1. `abstract class Account`
+### 2. `Account.java` (Abstract Class)
+Base class providing foundational banking attributes and behaviors:
 * **Fields**:
-  * `private final String accountNumber`: Unique ID (e.g., `ACC1001`).
-  * `private final String customerName`: Account holder's name.
-  * `private final String email`: Contact email.
-  * `protected double balance`: Accessible by child classes (`SavingsAccount`, `CurrentAccount`).
-  * `private final LocalDateTime createdAt`: Account opening timestamp.
-* **Methods**:
-  * `deposit(double amount)`: Common logic for all accounts. Validates `amount > 0` and increments `balance`.
-  * `abstract void withdraw(double amount)`: Abstract method forcing each child class to implement its own business rule.
-  * `abstract String getAccountType()`: Returns `"SAVINGS"` or `"CURRENT"`.
-  * `abstract String getAccountSummary()`: Returns policy details (interest rate, minimum balance, or overdraft limit).
-
-#### 2. `class SavingsAccount extends Account`
-* **Specific Rules**:
-  * `MINIMUM_BALANCE = 1000.00`: Enforces that the balance cannot drop below Rs. 1,000.
-  * `interestRate = 4.00`: 4.0% per annum savings interest.
-* **Polymorphic `withdraw(double amount)`**:
-  * Checks `(this.balance - amount < MINIMUM_BALANCE)`.
-  * Throws `InsufficientBalanceException` if minimum balance would be violated.
-
-#### 3. `class CurrentAccount extends Account`
-* **Specific Rules**:
-  * `overdraftLimit`: Commercial limit (default Rs. 25,000.00) allowing businesses to withdraw even when balance reaches zero.
-* **Polymorphic `withdraw(double amount)`**:
-  * Checks `(this.balance - amount < -overdraftLimit)`.
-  * Allows negative balance up to `-overdraftLimit`.
-  * Throws `InsufficientBalanceException` only if the requested amount exceeds `balance + overdraftLimit`.
-
----
-
-### Section D: Service & Collections Management (Unit 2)
-
-#### `class BankingService`
-The business logic orchestrator that manages account operations in memory:
-
-* **Collections Used**:
-  * `Map<String, Account> accountMap = new HashMap<>()`:
-    * Used for storing and retrieving accounts.
-    * Offers average $O(1)$ constant time lookup via `accountMap.get(accountNumber)`.
-  * `List<Transaction> transactions = new ArrayList<>()`:
-    * Used as an append-only ledger history.
+  * `String accNo`: Unique identifier (e.g. `ACC101`).
+  * `String name`: Customer's full name.
+  * `String email`: Customer's contact email.
+  * `String pin`: 4-digit security PIN used for authorizing withdrawals, logins, and transfers.
+  * `double balance`: Current monetary balance.
 * **Key Methods**:
-  * `createAccount(...)`: Validates input, generates `ACC100x`, creates the polymorphic object, saves to `accountMap`, and adds an initial transaction if opening balance > 0.
-  * `deposit(...)`: Finds account, calls `account.deposit()`, generates transaction receipt, and records it in the `ArrayList`.
-  * `withdraw(...)`: Finds account, polymorphically calls `account.withdraw()`, and records transaction.
-  * `transfer(fromAcc, toAcc, amount, remark)`:
-    1. Withdraws from source account.
-    2. Credits destination account.
-    3. If crediting fails, rolls back source balance and throws `BankingException`.
-    4. Creates paired debit (`TRANSFER_OUT`) and credit (`TRANSFER_IN`) records.
-  * `getTransactions(...)`: Filters records using simple `for` loops (by account number and transaction type) and sorts them using an anonymous `Comparator<Transaction>` (by date or amount).
-  * `printBankAnalytics()`: Iterates through `accountMap.values()` and `transactions` to calculate total bank cash reserves, account counts, and average/max transaction values.
+  * `verifyPin(String enteredPin)`: Compares entered PIN with the stored PIN.
+  * `deposit(double amt)`: Validates that `amt > 0`, increases balance, and prints confirmation.
+  * `abstract void withdraw(double amt)`: Abstract method forcing each account subtype to supply its own business logic.
+  * `abstract String getAccountType()`: Returns `"SAVINGS"` or `"CURRENT"`.
+  * `display()`: Prints formatted account summary.
 
 ---
 
-### Section E: Interactive Terminal Interface (Main Entry Point)
-
-#### `public class BankingApplication`
-Contains the `main(String[] args)` method and the `Scanner` console interaction loop:
-* **Menu Options**:
-  1. **Create New Account**: Prompts for customer name, email, account type (Savings/Current), initial deposit, and overdraft limit.
-  2. **Deposit Money**: Prompts for account number and deposit amount.
-  3. **Withdraw Money**: Prompts for account number and withdrawal amount.
-  4. **Inter-Account Fund Transfer**: Prompts for sender account, recipient account, and amount.
-  5. **Balance Enquiry & Account Details**: Shows account summary, balance, and account rules.
-  6. **Transaction History / Ledger**: Mini-statement filterable by account or transaction type, with sorting options.
-  7. **Bank Analytics & Total Reserves**: Displays total bank reserves and metrics.
-  8. **Exit**: Gracefully exits the application.
+### 3. `SavingsAccount.java` (Inheritance & Polymorphism)
+Subclass extending `Account` for retail customers:
+* **Rules**:
+  * `minBal = 1000.0`: Must always maintain at least ₹1,000.
+  * Constructor rejects opening deposits $< 1000$ by throwing `InsufficientBalanceException`.
+* **Polymorphic `withdraw(double amt)`**:
+  * Verifies `(balance - amt >= minBal)`.
+  * If the resulting balance would drop below ₹1,000, rejects the transaction with an `InsufficientBalanceException`.
 
 ---
 
-## 4. How to Compile & Run the Project
-
-Open your command prompt or terminal in `c:\Users\parvj\OneDrive\Desktop\FOLDERS\sem 3\Java\project\` and run:
-
-```bash
-# Step 1: Compile
-javac BankingApplication.java
-
-# Step 2: Run
-java BankingApplication
-```
+### 4. `CurrentAccount.java` (Inheritance & Polymorphism)
+Subclass extending `Account` for businesses:
+* **Rules**:
+  * `limit`: Overdraft facility (e.g. ₹25,000). Allows the balance to drop below ₹0 into negative values down to `-limit`.
+* **Polymorphic `withdraw(double amt)`**:
+  * Verifies `(balance - amt >= -limit)`.
+  * If the requested withdrawal exceeds the balance plus overdraft limit, throws `InsufficientBalanceException`.
 
 ---
 
-## 5. Typical Viva Questions & Answers
+### 5. `Transaction.java`
+Simple class modeling individual ledger transactions:
+* **Fields**:
+  * `int id`: Auto-incrementing transaction ID (e.g., `1`, `2`).
+  * `String accNo`: Associated account number.
+  * `String type`: `"DEPOSIT"`, `"WITHDRAW"`, `"TRANSFER-IN"`, or `"TRANSFER-OUT"`.
+  * `double amount`: Value of the transaction.
+  * `double remBal`: Account balance remaining immediately after the transaction.
+  * `String remark`: Notes/description (e.g. `"Sent to ACC102"`, `"Cash deposited"`).
+* **Method**:
+  * `printTxn()`: Prints transaction details in a single clean line.
+
+---
+
+### 6. `BankManager.java` (Collections & Core Business Logic)
+The engine managing all in-memory operations using the Java Collections Framework:
+* **Data Structures**:
+  * `HashMap<String, Account> map`: Key-value map using `accNo` as key for $O(1)$ constant time lookup.
+  * `ArrayList<Transaction> txns`: Sequential list recording all transactions in chronological order.
+* **Core Methods**:
+  * `openAccount(name, email, pin, type, bal, limit)`:
+    * Checks for duplicate accounts by verifying if the `email` already exists in `map.values()`.
+    * Validates that the PIN has at least 4 digits.
+    * Generates account number `ACC101`, `ACC102`, etc.
+    * Adds an opening balance transaction if $bal > 0$.
+  * `login(accNo, pin)`: Verifies account existence and checks PIN validity.
+  * `resetPin(accNo, email, newPin)`: Matches the registered email for that account and sets the new PIN.
+  * `doDeposit(targetAccNo, amt, depositorName)`: Deposits cash into **any target account** without requiring a password.
+  * `doWithdraw(accNo, amt, pin)`: Verifies the security PIN before deducting funds.
+  * `doTransfer(from, to, amt, senderPin)`:
+    1. Verifies the sender's PIN.
+    2. Withdraws `amt` from sender.
+    3. Deposits `amt` to recipient.
+    4. Performs an automatic rollback if the credit step fails.
+    5. Records paired debit (`TRANSFER-OUT`) and credit (`TRANSFER-IN`) transactions in `txns`.
+  * `showPassbook(accNo)`: Iterates through `txns` with a `for` loop to display records matching `accNo`.
+  * `showSortedTransactions()`: Sorts a copy of `txns` by amount (high-to-low) using `Collections.sort()` and an anonymous `Comparator<Transaction>` class.
+  * `showSummary()`: Computes total cash and counts by iterating through `map.values()`.
+
+---
+
+### 7. `SimpleHttpServer.java` (Built-in Web Server & REST API)
+Uses standard Java SE `com.sun.net.httpserver.HttpServer` on port `8080`:
+* Serves the frontend files (`index.html`, `style.css`, `script.js`).
+* Exposes clean JSON REST endpoints:
+  * `GET /api/accounts` - Retrieves account list.
+  * `POST /api/create-account` - Registers a new account with email uniqueness check.
+  * `POST /api/login` - Authenticates user with Account No + PIN.
+  * `POST /api/reset-pin` - Resets PIN after email verification.
+  * `POST /api/deposit` - Deposits funds into any target account number.
+  * `POST /api/withdraw` - Withdraws funds (requires PIN).
+  * `POST /api/transfer` - Transfers funds to another account (requires sender PIN).
+  * `GET /api/transactions` - Returns all transaction ledger entries.
+  * `GET /api/report` - Returns total accounts, reserves, and transaction counts.
+
+---
+
+### 8. `Main.java`
+* Entrypoint containing `public static void main(String[] args)`.
+* Launches `SimpleHttpServer` on port `8080`.
+* Provides a console CLI menu with `Scanner` so the evaluator can test operations in the terminal or in the browser simultaneously.
+
+---
+
+## 4. Frontend & Customer Portal Features
+
+* **Authentication & Onboarding Flow**:
+  * Users start on a clean landing screen where they can **Create an Account** or **Login** with their existing account number and PIN.
+  * Includes a **"Forgot PIN?"** recovery form verifying registered email.
+  * Starts fresh on every launch (no ghost data).
+* **Virtual Debit Card**:
+  * Displays user name, account type, masked account number (`ACC---`), and live balance.
+* **Privacy Mode (Eye Icon 👁️ / 🙈)**:
+  * Toggles blurring of balances and sensitive figures.
+* **Action Sections**:
+  1. **Deposit Money**: Deposit cash into your own account or specify any other target account number.
+  2. **Withdraw Money**: ATM withdrawal requiring the 4-digit Security PIN.
+  3. **Transfer Funds**: Inter-account bank transfer requiring sender's PIN.
+  4. **My Passbook**: Shows all debits, credits, and remaining balance for the logged-in user.
+  5. **Saved Beneficiaries**: Save trusted payees with one-click **Transfer**, **Deposit**, or **Delete** actions.
+
+---
+
+## 5. How to Run the Project
+
+1. **Option 1 (One-Click)**:
+   Double-click `start_backend.bat`.
+
+2. **Option 2 (Terminal Command)**:
+   ```bash
+   javac *.java
+   java Main
+   ```
+
+3. Open your browser:
+   **[http://localhost:8080](http://localhost:8080)**
+
+---
+
+## 6. Frequently Asked Viva Questions & Answers
 
 **Q1: Why did you use an `abstract class` for `Account` instead of an `interface`?**
-> *Answer*: `Account` has shared state (`accountNumber`, `balance`, `customerName`) and common implemented behavior (`deposit()`, getters). Interfaces cannot hold instance state. Abstract classes allow sharing both common implementation and declaring abstract methods (`withdraw()`) that subclasses must customize.
+> *Answer*: `Account` holds common state (`accNo`, `name`, `balance`, `pin`) and common logic (`deposit()`, `verifyPin()`). Interfaces cannot hold non-static instance variables. An abstract class allows sharing common fields and concrete methods while leaving `withdraw()` abstract for subclasses to define.
 
-**Q2: How is Polymorphism demonstrated here?**
-> *Answer*: Through method overriding. Both `SavingsAccount` and `CurrentAccount` override the abstract `withdraw(double amount)` method of `Account`. At runtime, when `account.withdraw()` is called, Java dynamically invokes the appropriate logic based on the actual object type (minimum balance check for Savings vs overdraft check for Current).
+**Q2: Where is Polymorphism used in your project?**
+> *Answer*: In method overriding. Both `SavingsAccount` and `CurrentAccount` override the abstract `withdraw(double amt)` method of `Account`. At runtime, when `withdraw()` is invoked on an `Account` reference, Java dynamically executes the subtype's specific version (checking minimum balance for Savings, or overdraft limit for Current).
 
-**Q3: Why choose `HashMap` for accounts and `ArrayList` for transactions?**
+**Q3: Why choose `HashMap` for storing accounts and `ArrayList` for transactions?**
 > *Answer*:
-> * `HashMap` gives $O(1)$ fast lookups using the unique `accountNumber` as the key.
-> * `ArrayList` maintains the sequential order of transactions as they occur, making it ideal for chronological ledger history and iterating for mini-statements.
+> * `HashMap` provides average $O(1)$ constant time lookup for accounts using the unique `accNo` key.
+> * `ArrayList` provides an ordered, index-based dynamic array that preserves the exact chronological sequence in which transactions occur.
 
-**Q4: How are transactions sorted without Streams or Lambdas?**
-> *Answer*: Using `Collections.sort()` with an anonymous inner class implementing the `Comparator<Transaction>` interface, comparing dates or amounts inside the overridden `compare(t1, t2)` method.
+**Q4: How do you sort transactions without using Java 8 Streams or Lambdas?**
+> *Answer*: By using `Collections.sort()` with an anonymous inner class implementing the `Comparator<Transaction>` interface, comparing `amount` inside the overridden `compare()` method.
+
+**Q5: How does the transfer method prevent money loss?**
+> *Answer*: It performs atomic debit and credit operations in sequence. If crediting the destination account encounters an error, the catch block immediately rolls back the debited amount to the source account (`a1.deposit(amt)`) before throwing an exception.

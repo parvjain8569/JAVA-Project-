@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apex Bank - Customer Portal</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast hide"></div>
+
+    <!-- ========================================== -->
+    <!-- 1. AUTH SCREEN (REGISTER / LOGIN / FORGOT) -->
+    <!-- ========================================== -->
+    <div id="auth-screen" class="auth-wrapper">
+        <div class="auth-card">
+            <div class="brand">
+                <div class="brand-badge">APEX BANK</div>
+                <h1 id="auth-heading">Welcome to Digital Banking</h1>
+                <p id="auth-subtext">Access your personal accounts, transfers, and real-time passbook.</p>
+            </div>
+
+            <!-- Tab Switcher -->
+            <div class="auth-tabs" id="auth-tabs-bar">
+                <button class="auth-tab" id="tab-btn-login" onclick="showAuthMode('login')">Existing Account</button>
+                <button class="auth-tab active" id="tab-btn-register" onclick="showAuthMode('register')">Create Account</button>
+            </div>
+
+            <!-- 1A. REGISTER FORM -->
+            <form id="form-register" onsubmit="handleRegister(event)">
+                <div class="input-field">
+                    <label>Full Name</label>
+                    <input type="text" id="reg-name" placeholder="e.g. Parv Jain" required>
+                </div>
+                <div class="input-field">
+                    <label>Email Address</label>
+                    <input type="email" id="reg-email" placeholder="e.g. parv@gmail.com" required>
+                </div>
+                <div class="input-field">
+                    <label>Create 4-Digit Security PIN</label>
+                    <input type="password" id="reg-pin" placeholder="Enter PIN (e.g. 1234)" maxlength="6" required>
+                </div>
+                <div class="input-field">
+                    <label>Account Type</label>
+                    <select id="reg-type" onchange="toggleRegOverdraft()">
+                        <option value="SAVINGS">Savings Account (Min Bal: ₹1,000)</option>
+                        <option value="CURRENT">Current Account (With Overdraft)</option>
+                    </select>
+                </div>
+                <div class="input-field">
+                    <label>Opening Deposit Amount (₹)</label>
+                    <input type="number" id="reg-bal" placeholder="Min 1000 for Savings" min="0" required>
+                </div>
+                <div class="input-field" id="reg-od-box" style="display: none;">
+                    <label>Overdraft Limit (₹)</label>
+                    <input type="number" id="reg-od" placeholder="e.g. 25000" value="25000" min="0">
+                </div>
+                <button type="submit" class="btn-primary">Create Account & Enter</button>
+            </form>
+
+            <!-- 1B. LOGIN FORM -->
+            <form id="form-login" onsubmit="handleLogin(event)" style="display: none;">
+                <div class="input-field">
+                    <label>Account Number</label>
+                    <input type="text" id="login-acc" placeholder="e.g. ACC101" required>
+                </div>
+                <div class="input-field">
+                    <label>Security PIN / Password</label>
+                    <input type="password" id="login-pin" placeholder="Enter your 4-digit PIN" required>
+                </div>
+                <div style="text-align: right; margin-bottom: 16px;">
+                    <a href="javascript:void(0)" onclick="showAuthMode('forgot')" style="color: #a1a1aa; font-size: 0.82rem; text-decoration: underline;">Forgot PIN?</a>
+                </div>
+                <button type="submit" class="btn-primary">Login to My Account</button>
+            </form>
+
+            <!-- 1C. FORGOT PASSWORD / PIN RESET FORM -->
+            <form id="form-forgot" onsubmit="handleResetPin(event)" style="display: none;">
+                <div class="input-field">
+                    <label>Account Number</label>
+                    <input type="text" id="forgot-acc" placeholder="e.g. ACC101" required>
+                </div>
+                <div class="input-field">
+                    <label>Registered Email Address</label>
+                    <input type="email" id="forgot-email" placeholder="e.g. parv@gmail.com" required>
+                </div>
+                <div class="input-field">
+                    <label>New Security PIN</label>
+                    <input type="password" id="forgot-new-pin" placeholder="New 4-digit PIN" maxlength="6" required>
+                </div>
+                <button type="submit" class="btn-primary">Reset Security PIN</button>
+                <div style="text-align: center; margin-top: 14px;">
+                    <a href="javascript:void(0)" onclick="showAuthMode('login')" style="color: #a1a1aa; font-size: 0.85rem; text-decoration: underline;">Back to Login</a>
+                </div>
+            </form>
+
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- 2. MAIN USER PORTAL (UNLOCKED AFTER AUTH)  -->
+    <!-- ========================================== -->
+    <div id="portal-screen" class="portal-wrapper" style="display: none;">
+        
+        <!-- Top Navbar -->
+        <header class="navbar">
+            <div class="nav-left">
+                <span class="logo">APEX BANK</span>
+                <span class="portal-tag">CUSTOMER PORTAL</span>
+            </div>
+
+            <div class="nav-right">
+                <button class="icon-btn" onclick="togglePrivacy()" title="Toggle Privacy Mask">
+                    <span id="eye-icon">👁️</span>
+                    <span id="eye-text">Hide Balance</span>
+                </button>
+
+                <div class="user-badge">
+                    <span class="avatar-circle" id="user-avatar">U</span>
+                    <div class="user-meta">
+                        <span class="user-name" id="user-name-display">Loading...</span>
+                        <span class="user-acc" id="user-acc-display">ACC---</span>
+                    </div>
+                </div>
+
+                <button class="btn-logout" onclick="logout()">Exit</button>
+            </div>
+        </header>
+
+        <!-- Main Body -->
+        <main class="portal-container">
+            
+            <!-- Hero Grid -->
+            <div class="hero-grid">
+                <!-- Virtual Debit Card -->
+                <div class="virtual-card">
+                    <div class="card-top">
+                        <span class="chip"></span>
+                        <span class="card-brand" id="card-type-display">SAVINGS</span>
+                    </div>
+                    <div class="card-balance">
+                        <span class="bal-label">AVAILABLE BALANCE</span>
+                        <h2 class="bal-amount masked" id="card-balance">₹0.00</h2>
+                    </div>
+                    <div class="card-bottom">
+                        <div>
+                            <span class="card-holder-label">ACCOUNT HOLDER</span>
+                            <p class="card-holder-name" id="card-name">--</p>
+                        </div>
+                        <div>
+                            <span class="card-holder-label">ACCOUNT NO</span>
+                            <p class="card-num masked" id="card-acc-num">ACC----</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Account Fast Stats -->
+                <div class="quick-stats-card">
+                    <h3>Account Security & Rules</h3>
+                    <div class="stats-row">
+                        <div class="stat-item">
+                            <span class="stat-title">Email</span>
+                            <span class="stat-data" id="stat-email">--</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-title">Security PIN</span>
+                            <span class="stat-data">PROTECTED (****)</span>
+                        </div>
+                    </div>
+                    <div class="stats-row">
+                        <div class="stat-item">
+                            <span class="stat-title">Account Rule</span>
+                            <span class="stat-data" id="stat-rule">Standard</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-title">Status</span>
+                            <span class="stat-badge">ACTIVE</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Portal Tabs -->
+            <nav class="portal-tabs">
+                <button class="p-tab active" onclick="switchSection('deposit-cash')">Deposit Money</button>
+                <button class="p-tab" onclick="switchSection('withdraw-cash')">Withdraw Money</button>
+                <button class="p-tab" onclick="switchSection('transfers')">Transfer Funds</button>
+                <button class="p-tab" onclick="switchSection('passbook')">My Passbook</button>
+                <button class="p-tab" onclick="switchSection('beneficiaries')">Saved Beneficiaries</button>
+            </nav>
+
+            <!-- SECTION 1: DEPOSIT MONEY (ANY TARGET ACCOUNT) -->
+            <section id="sec-deposit-cash" class="portal-section active">
+                <div class="action-card full-width">
+                    <div class="card-header">
+                        <div class="header-icon">📥</div>
+                        <div>
+                            <h3>Cash Deposit (To Any Account)</h3>
+                            <p>You can deposit cash into your own account or deposit directly into any other account by entering their account number.</p>
+                        </div>
+                    </div>
+
+                    <form onsubmit="handlePortalDeposit(event)">
+                        <div class="ops-grid">
+                            <div class="input-field">
+                                <label>Target Account Number to Deposit Into</label>
+                                <input type="text" id="deposit-target-acc" placeholder="e.g. ACC101 (or another account)" required>
+                                <span class="input-hint">Click <a href="javascript:void(0)" onclick="setSelfDeposit()" style="color:#ffffff;text-decoration:underline;">Deposit to My Account</a></span>
+                            </div>
+                            <div class="input-field">
+                                <label>Amount to Deposit (₹)</label>
+                                <input type="number" id="deposit-amount" placeholder="Enter amount" min="1" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn-primary">Confirm & Deposit Cash</button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- SECTION 2: WITHDRAW MONEY (REQUIRES PIN PASSWORD) -->
+            <section id="sec-withdraw-cash" class="portal-section">
+                <div class="action-card full-width">
+                    <div class="card-header">
+                        <div class="header-icon">🏧</div>
+                        <div>
+                            <h3>Secure ATM Withdrawal</h3>
+                            <p>Withdraw money from your account. <strong>Your Security PIN is strictly required</strong> to authorize the debit.</p>
+                        </div>
+                    </div>
+
+                    <form onsubmit="handlePortalWithdraw(event)">
+                        <div class="ops-grid">
+                            <div class="input-field">
+                                <label>Withdrawal Amount (₹)</label>
+                                <input type="number" id="withdraw-amount" placeholder="Enter amount" min="1" required>
+                            </div>
+                            <div class="input-field">
+                                <label>Enter Your Security PIN / Password</label>
+                                <input type="password" id="withdraw-pin" placeholder="Enter 4-digit PIN" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn-primary">Authorize & Withdraw Cash</button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- SECTION 3: TRANSFERS (REQUIRES SENDER PIN) -->
+            <section id="sec-transfers" class="portal-section">
+                <div class="action-card full-width">
+                    <div class="card-header">
+                        <div class="header-icon">⇄</div>
+                        <div>
+                            <h3>Inter-Account Transfer</h3>
+                            <p>Send money directly to another account in Apex Bank. Requires your Security PIN.</p>
+                        </div>
+                    </div>
+
+                    <form onsubmit="handlePortalTransfer(event)">
+                        <div class="ops-grid">
+                            <div class="input-field">
+                                <label>Recipient Account Number</label>
+                                <input type="text" id="transfer-target" placeholder="e.g. ACC102" required>
+                            </div>
+                            <div class="input-field">
+                                <label>Amount (₹)</label>
+                                <input type="number" id="transfer-amt" placeholder="Enter amount" min="1" required>
+                            </div>
+                            <div class="input-field">
+                                <label>Your Security PIN / Password</label>
+                                <input type="password" id="transfer-pin" placeholder="Enter your PIN" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn-primary">Authorize & Transfer Funds</button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- SECTION 4: PASSBOOK -->
+            <section id="sec-passbook" class="portal-section">
+                <div class="table-container">
+                    <div class="table-header">
+                        <h3>Personal Account Passbook</h3>
+                        <span class="table-subtitle">All debits and credits recorded on your account</span>
+                    </div>
+                    <table class="styled-table">
+                        <thead>
+                            <tr>
+                                <th>Txn ID</th>
+                                <th>Type</th>
+                                <th>Amount</th>
+                                <th>Remaining Balance</th>
+                                <th>Description / Counterparty</th>
+                            </tr>
+                        </thead>
+                        <tbody id="passbook-tbody">
+                            <tr><td colspan="5" class="empty-state">No transactions yet.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- SECTION 5: SAVED BENEFICIARIES -->
+            <section id="sec-beneficiaries" class="portal-section">
+                <div class="action-card full-width" style="margin-bottom: 20px;">
+                    <div class="card-header">
+                        <div class="header-icon">👤</div>
+                        <div>
+                            <h3>Add New Beneficiary / Payee</h3>
+                            <p>Save trusted account numbers to quickly transfer money or deposit cash without retyping.</p>
+                        </div>
+                    </div>
+                    <form onsubmit="handleAddBeneficiary(event)">
+                        <div class="ops-grid">
+                            <div class="input-field">
+                                <label>Beneficiary Nickname / Name</label>
+                                <input type="text" id="ben-name" placeholder="e.g. Sahil or Landlord" required>
+                            </div>
+                            <div class="input-field">
+                                <label>Apex Bank Account Number</label>
+                                <input type="text" id="ben-acc" placeholder="e.g. ACC102" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn-primary">Save Beneficiary</button>
+                    </form>
+                </div>
+
+                <div class="table-container">
+                    <div class="table-header">
+                        <h3>Saved Beneficiaries</h3>
+                        <span class="table-subtitle">Your personal list of saved payees</span>
+                    </div>
+                    <table class="styled-table">
+                        <thead>
+                            <tr>
+                                <th>Name / Nickname</th>
+                                <th>Account Number</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="beneficiary-tbody">
+                            <tr><td colspan="3" class="empty-state">No saved beneficiaries yet. Add your first one above!</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

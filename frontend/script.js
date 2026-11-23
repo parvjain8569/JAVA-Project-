@@ -1,488 +1,437 @@
-// Customer Portal Logic
+// Frontend JavaScript written in standard 3rd sem student style (clean DOM + fetch)
 
-let currentAccount = null;
-let myTransactions = [];
-let allBankAccounts = [];
-let isPrivacyMasked = false;
+let currentUser = null; // store current logged in account
+let isEyeClosed = false;
 
-// Always start fresh - clear old browser session cache so no ghost accounts remain
+// 1. Check Auth on page load
 window.onload = function() {
+    // start fresh on every launch as requested
     localStorage.clear();
-    currentAccount = null;
-    showAuthMode("register");
+    setAuthTab("login");
 };
 
-// ==========================================
-// 1. AUTH SCREEN MODES (LOGIN / REGISTER / FORGOT)
-// ==========================================
+// Switch between Login, Register and Forgot PIN tabs
+function setAuthTab(tab) {
+    let loginForm = document.getElementById("loginForm");
+    let registerForm = document.getElementById("registerForm");
+    let forgotForm = document.getElementById("forgotForm");
+    let btnLogin = document.getElementById("btnTabLogin");
+    let btnRegister = document.getElementById("btnTabRegister");
 
-function showAuthMode(mode) {
-    const regTab = document.getElementById("tab-btn-register");
-    const logTab = document.getElementById("tab-btn-login");
-    const tabsBar = document.getElementById("auth-tabs-bar");
-    const regForm = document.getElementById("form-register");
-    const logForm = document.getElementById("form-login");
-    const forgotForm = document.getElementById("form-forgot");
-    const heading = document.getElementById("auth-heading");
-    const subtext = document.getElementById("auth-subtext");
-
-    document.getElementById("auth-screen").style.display = "flex";
-    document.getElementById("portal-screen").style.display = "none";
-
-    if (mode === "register") {
-        tabsBar.style.display = "grid";
-        regTab.classList.add("active");
-        logTab.classList.remove("active");
-        regForm.style.display = "block";
-        logForm.style.display = "none";
+    if (tab === "login") {
+        loginForm.style.display = "flex";
+        registerForm.style.display = "none";
         forgotForm.style.display = "none";
-        heading.innerText = "Create New Account";
-        subtext.innerText = "Open a digital bank account in seconds with an opening deposit.";
-    } else if (mode === "login") {
-        tabsBar.style.display = "grid";
-        logTab.classList.add("active");
-        regTab.classList.remove("active");
-        logForm.style.display = "block";
-        regForm.style.display = "none";
+        btnLogin.className = "tabActive";
+        btnRegister.className = "";
+    } else if (tab === "register") {
+        loginForm.style.display = "none";
+        registerForm.style.display = "flex";
         forgotForm.style.display = "none";
-        heading.innerText = "Welcome Back";
-        subtext.innerText = "Enter your Account Number and Security PIN to sign in.";
-    } else if (mode === "forgot") {
-        tabsBar.style.display = "none";
-        logForm.style.display = "none";
-        regForm.style.display = "none";
-        forgotForm.style.display = "block";
-        heading.innerText = "Reset Security PIN";
-        subtext.innerText = "Verify your registered email address to set a new PIN.";
+        btnLogin.className = "";
+        btnRegister.className = "tabActive";
+    } else if (tab === "forgot") {
+        loginForm.style.display = "none";
+        registerForm.style.display = "none";
+        forgotForm.style.display = "flex";
+        btnLogin.className = "";
+        btnRegister.className = "";
     }
 }
 
-function toggleRegOverdraft() {
-    const type = document.getElementById("reg-type").value;
-    document.getElementById("reg-od-box").style.display = (type === "CURRENT") ? "block" : "none";
+// Show overdraft input if Current account selected
+function checkType() {
+    let type = document.getElementById("regType").value;
+    let odDiv = document.getElementById("odDiv");
+    if (type === "CURRENT") {
+        odDiv.style.display = "block";
+    } else {
+        odDiv.style.display = "none";
+    }
 }
 
-// 1A. Handler: Register
+// Message alert helper
+function showMsg(text, isError) {
+    let msgBox = document.getElementById("msgBox");
+    msgBox.style.display = "block";
+    msgBox.innerText = text;
+    if (isError) {
+        msgBox.className = "msgBox msgError";
+    } else {
+        msgBox.className = "msgBox msgSuccess";
+    }
+    setTimeout(function() {
+        msgBox.style.display = "none";
+    }, 4000);
+}
+
+// 2. Authentication: Register
 function handleRegister(e) {
     e.preventDefault();
-    const name = document.getElementById("reg-name").value.trim();
-    const email = document.getElementById("reg-email").value.trim();
-    const pin = document.getElementById("reg-pin").value.trim();
-    const type = document.getElementById("reg-type").value;
-    const balance = parseFloat(document.getElementById("reg-bal").value);
-    const limit = parseFloat(document.getElementById("reg-od").value) || 0;
+    let name = document.getElementById("regName").value;
+    let email = document.getElementById("regEmail").value;
+    let pin = document.getElementById("regPin").value;
+    let type = document.getElementById("regType").value;
+    let balance = document.getElementById("regBal").value;
+    let limit = document.getElementById("regOd").value || 0;
 
-    if (pin.length < 4) {
-        showToast("Security PIN must be at least 4 digits!", true);
-        return;
-    }
-
-    if (type === "SAVINGS" && balance < 1000) {
-        showToast("Savings account requires at least ₹1,000 opening deposit!", true);
-        return;
-    }
-
-    const payload = { name, email, pin, type, balance, limit };
+    let obj = {
+        name: name,
+        email: email,
+        pin: pin,
+        type: type,
+        balance: balance,
+        limit: limit
+    };
 
     fetch("/api/create-account", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(obj)
     })
-    .then(res => {
-        if (!res.ok) {
-            return res.json().then(errData => { throw new Error(errData.message || "Request failed"); });
-        }
+    .then(function(res) {
         return res.json();
     })
-    .then(res => {
-        if (res.success) {
-            showToast("Account Created! Your Account Number is " + res.accNo, false);
-            currentAccount = { accNo: res.accNo, name, email, type, balance };
-            enterPortal();
+    .then(function(data) {
+        if (data.success) {
+            showMsg("Account created! Your Account Number is: " + data.accNo, false);
+            // automatically login
+            currentUser = {
+                accNo: data.accNo,
+                name: name,
+                email: email,
+                type: type,
+                balance: parseFloat(balance)
+            };
+            loadDashboard();
         } else {
-            showToast(res.message || "Account creation failed!", true);
+            showMsg(data.message || "Failed to create account!", true);
         }
     })
-    .catch(err => showToast(err.message || "Failed to create account", true));
+    .catch(function(err) {
+        showMsg("Network Error: " + err, true);
+    });
 }
 
-// 1B. Handler: Login with Account No & PIN
+// 3. Authentication: Login
 function handleLogin(e) {
     e.preventDefault();
-    const accNo = document.getElementById("login-acc").value.trim().toUpperCase();
-    const pin = document.getElementById("login-pin").value.trim();
-
-    if (!accNo || !pin) {
-        showToast("Please enter both Account Number and PIN!", true);
-        return;
-    }
+    let accNo = document.getElementById("loginAcc").value.trim().toUpperCase();
+    let pin = document.getElementById("loginPin").value.trim();
 
     fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accNo, pin })
+        body: JSON.stringify({ accNo: accNo, pin: pin })
     })
-    .then(res => {
-        if (!res.ok) {
-            return res.json().then(errData => { throw new Error(errData.message || "Login failed"); });
-        }
+    .then(function(res) {
         return res.json();
     })
-    .then(res => {
-        if (res.success) {
-            showToast("Login successful! Welcome " + res.name, false);
-            currentAccount = res;
-            enterPortal();
+    .then(function(data) {
+        if (data.success) {
+            showMsg("Login successful! Welcome " + data.name, false);
+            currentUser = data;
+            loadDashboard();
         } else {
-            showToast(res.message || "Invalid account number or PIN!", true);
+            showMsg(data.message || "Invalid Account Number or PIN!", true);
         }
     })
-    .catch(err => showToast(err.message || "Login failed", true));
+    .catch(function(err) {
+        showMsg("Network error during login: " + err, true);
+    });
 }
 
-// 1C. Handler: Reset PIN / Forgot Password
-function handleResetPin(e) {
+// 4. Authentication: Forgot PIN
+function handleForgot(e) {
     e.preventDefault();
-    const accNo = document.getElementById("forgot-acc").value.trim().toUpperCase();
-    const email = document.getElementById("forgot-email").value.trim();
-    const newPin = document.getElementById("forgot-new-pin").value.trim();
-
-    if (newPin.length < 4) {
-        showToast("New PIN must be at least 4 digits!", true);
-        return;
-    }
+    let accNo = document.getElementById("forgotAcc").value.trim().toUpperCase();
+    let email = document.getElementById("forgotEmail").value.trim();
+    let newPin = document.getElementById("forgotNewPin").value.trim();
 
     fetch("/api/reset-pin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accNo, email, newPin })
+        body: JSON.stringify({ accNo: accNo, email: email, newPin: newPin })
     })
-    .then(res => {
-        if (!res.ok) {
-            return res.json().then(errData => { throw new Error(errData.message || "Reset failed"); });
-        }
+    .then(function(res) {
         return res.json();
     })
-    .then(res => {
-        if (res.success) {
-            showToast("PIN reset successfully! You can now log in.", false);
-            e.target.reset();
-            showAuthMode("login");
-            document.getElementById("login-acc").value = accNo;
-            document.getElementById("login-pin").focus();
+    .then(function(data) {
+        if (data.success) {
+            showMsg("PIN reset successful! You can now login.", false);
+            setAuthTab("login");
+            document.getElementById("loginAcc").value = accNo;
         } else {
-            showToast(res.message || "PIN reset failed!", true);
+            showMsg(data.message || "PIN reset failed!", true);
         }
     })
-    .catch(err => showToast(err.message || "Reset failed", true));
+    .catch(function(err) {
+        showMsg("Network error: " + err, true);
+    });
 }
 
-function logout() {
-    localStorage.removeItem("apex_user_acc");
-    currentAccount = null;
-    showToast("Logged out successfully.", false);
-    showAuthMode("login");
+// 5. Load User Dashboard after login
+function loadDashboard() {
+    document.getElementById("authSection").style.display = "none";
+    document.getElementById("userDashboard").style.display = "block";
+    document.getElementById("logoutBtn").style.display = "block";
+    document.getElementById("navAccNo").innerText = currentUser.accNo;
+
+    updateUI();
+    showSection("dashboard");
 }
 
-// ==========================================
-// 2. PORTAL DASHBOARD & SECTIONS
-// ==========================================
-
-function enterPortal() {
-    document.getElementById("auth-screen").style.display = "none";
-    document.getElementById("portal-screen").style.display = "block";
-    refreshUserData();
+function updateUI() {
+    document.getElementById("dashName").innerText = currentUser.name;
+    document.getElementById("dashAccNo").innerText = currentUser.accNo;
+    document.getElementById("dashEmail").innerText = currentUser.email;
+    document.getElementById("dashType").innerText = currentUser.type;
+    document.getElementById("dashBal").innerText = "Rs " + parseFloat(currentUser.balance).toFixed(2);
 }
 
-function refreshUserData() {
-    if (!currentAccount) return;
+// Section navigation
+function showSection(sec) {
+    let sections = ["dashboard", "deposit", "withdraw", "transfer", "passbook", "beneficiaries"];
+    for (let i = 0; i < sections.length; i++) {
+        let el = document.getElementById("sec-" + sections[i]);
+        if (el) {
+            if (sections[i] === sec) {
+                el.style.display = "block";
+            } else {
+                el.style.display = "none";
+            }
+        }
+    }
 
-    fetch("/api/accounts")
-        .then(res => res.json())
-        .then(accounts => {
-            allBankAccounts = accounts;
-            const updated = accounts.find(a => a.accNo === currentAccount.accNo);
-            if (updated) currentAccount = updated;
-
-            // Navbar
-            document.getElementById("user-avatar").innerText = currentAccount.name.charAt(0).toUpperCase();
-            document.getElementById("user-name-display").innerText = currentAccount.name;
-            document.getElementById("user-acc-display").innerText = currentAccount.accNo;
-
-            // Virtual Card
-            document.getElementById("card-type-display").innerText = currentAccount.type;
-            document.getElementById("card-balance").innerText = "₹" + currentAccount.balance.toLocaleString("en-IN", { minimumFractionDigits: 2 });
-            document.getElementById("card-name").innerText = currentAccount.name.toUpperCase();
-            document.getElementById("card-acc-num").innerText = currentAccount.accNo;
-
-            // Stats
-            document.getElementById("stat-email").innerText = currentAccount.email;
-            document.getElementById("stat-rule").innerText = (currentAccount.type === "SAVINGS") ? "Min Bal ₹1,000" : "Overdraft Facility";
-
-            loadMyPassbook();
-            renderBeneficiaries();
-        });
-}
-
-function switchSection(secName) {
-    const tabs = document.querySelectorAll(".p-tab");
-    tabs.forEach(t => t.classList.remove("active"));
-    event.target.classList.add("active");
-
-    const sections = document.querySelectorAll(".portal-section");
-    sections.forEach(s => s.classList.remove("active"));
-    document.getElementById("sec-" + secName).classList.add("active");
-
-    if (secName === "passbook") {
-        loadMyPassbook();
-    } else if (secName === "beneficiaries") {
+    if (sec === "passbook") {
+        fetchPassbook();
+    } else if (sec === "beneficiaries") {
         renderBeneficiaries();
     }
 }
 
-function togglePrivacy() {
-    isPrivacyMasked = !isPrivacyMasked;
-    document.body.classList.toggle("is-private", isPrivacyMasked);
-    document.getElementById("eye-icon").innerText = isPrivacyMasked ? "🙈" : "👁️";
-    document.getElementById("eye-text").innerText = isPrivacyMasked ? "Show Balance" : "Hide Balance";
-}
+// Eye button to hide / show balance
+function toggleEye() {
+    isEyeClosed = !isEyeClosed;
+    let balText = document.getElementById("dashBal");
+    let eyeIcon = document.getElementById("eyeIcon");
+    let eyeText = document.getElementById("eyeText");
 
-function setSelfDeposit() {
-    if (currentAccount) {
-        document.getElementById("deposit-target-acc").value = currentAccount.accNo;
-        document.getElementById("deposit-amount").focus();
+    if (isEyeClosed) {
+        balText.classList.add("masked");
+        eyeIcon.className = "bi bi-eye-slash";
+        eyeText.innerText = "Show Balance";
+    } else {
+        balText.classList.remove("masked");
+        eyeIcon.className = "bi bi-eye";
+        eyeText.innerText = "Hide Balance";
     }
 }
 
-// ==========================================
-// 3. CASH DEPOSIT (TARGETS ANY ACCOUNT NUMBER)
-// ==========================================
-function handlePortalDeposit(e) {
+// Logout
+function handleLogout() {
+    currentUser = null;
+    document.getElementById("userDashboard").style.display = "none";
+    document.getElementById("authSection").style.display = "block";
+    document.getElementById("logoutBtn").style.display = "none";
+    document.getElementById("navAccNo").innerText = "Not Logged In";
+    setAuthTab("login");
+    showMsg("Logged out successfully.", false);
+}
+
+// Helper to fill self account in deposit
+function fillSelfAcc() {
+    if (currentUser) {
+        document.getElementById("depTargetAcc").value = currentUser.accNo;
+    }
+}
+
+// 6. Cash Deposit
+function handleDeposit(e) {
     e.preventDefault();
-    const targetAcc = document.getElementById("deposit-target-acc").value.trim().toUpperCase();
-    const amount = parseFloat(document.getElementById("deposit-amount").value);
-
-    if (isNaN(amount) || amount <= 0) {
-        showToast("Please enter a valid deposit amount greater than 0!", true);
-        return;
-    }
-
-    const payload = {
-        targetAcc: targetAcc,
-        amount: amount,
-        depositor: currentAccount ? currentAccount.name : "Cash Counter"
-    };
+    let targetAcc = document.getElementById("depTargetAcc").value.trim().toUpperCase();
+    let amt = document.getElementById("depAmt").value;
 
     fetch("/api/deposit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({ targetAcc: targetAcc, amount: amt, depositor: currentUser.name })
     })
-    .then(res => res.json())
-    .then(res => {
-        if (res.success) {
-            showToast("Deposit of ₹" + amount + " to " + targetAcc + " successful!", false);
+    .then(function(res) {
+        return res.json();
+    })
+    .then(function(data) {
+        if (data.success) {
+            showMsg(data.message || "Deposit successful!", false);
+            if (targetAcc === currentUser.accNo) {
+                currentUser.balance = data.balance;
+                updateUI();
+            }
             e.target.reset();
-            refreshUserData();
         } else {
-            showToast(res.message || "Deposit rejected! Please check account number.", true);
+            showMsg(data.message || "Deposit rejected!", true);
         }
     })
-    .catch(err => showToast("Deposit error: " + err, true));
+    .catch(function(err) {
+        showMsg("Error: " + err, true);
+    });
 }
 
-// ==========================================
-// 4. CASH WITHDRAWAL (REQUIRES PIN PASSWORD)
-// ==========================================
-function handlePortalWithdraw(e) {
+// 7. Cash Withdraw
+function handleWithdraw(e) {
     e.preventDefault();
-    const amount = parseFloat(document.getElementById("withdraw-amount").value);
-    const pin = document.getElementById("withdraw-pin").value.trim();
-
-    if (isNaN(amount) || amount <= 0) {
-        showToast("Please enter a valid withdrawal amount!", true);
-        return;
-    }
-    if (!pin) {
-        showToast("Security PIN / Password is required to withdraw money!", true);
-        return;
-    }
-
-    const payload = {
-        accNo: currentAccount.accNo,
-        amount: amount,
-        pin: pin
-    };
+    let amt = document.getElementById("withAmt").value;
+    let pin = document.getElementById("withPin").value;
 
     fetch("/api/withdraw", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({ accNo: currentUser.accNo, amount: amt, pin: pin })
     })
-    .then(res => res.json())
-    .then(res => {
-        if (res.success) {
-            showToast("Withdrawal of ₹" + amount + " successful!", false);
+    .then(function(res) {
+        return res.json();
+    })
+    .then(function(data) {
+        if (data.success) {
+            showMsg(data.message || "Withdrawal successful!", false);
+            currentUser.balance = data.balance;
+            updateUI();
             e.target.reset();
-            refreshUserData();
         } else {
-            showToast(res.message || "Withdrawal failed! Check PIN or balance.", true);
+            showMsg(data.message || "Withdrawal failed!", true);
         }
     })
-    .catch(err => showToast("Withdrawal error: " + err, true));
+    .catch(function(err) {
+        showMsg("Error: " + err, true);
+    });
 }
 
-// ==========================================
-// 5. INTER-ACCOUNT TRANSFER (REQUIRES PIN)
-// ==========================================
-function handlePortalTransfer(e) {
+// 8. Inter-Account Transfer
+function handleTransfer(e) {
     e.preventDefault();
-    const target = document.getElementById("transfer-target").value.trim().toUpperCase();
-    const amount = parseFloat(document.getElementById("transfer-amt").value);
-    const pin = document.getElementById("transfer-pin").value.trim();
+    let toAcc = document.getElementById("transToAcc").value.trim().toUpperCase();
+    let amt = document.getElementById("transAmt").value;
+    let pin = document.getElementById("transPin").value;
 
-    if (target === currentAccount.accNo.toUpperCase()) {
-        showToast("Cannot transfer to your own account! Use Deposit instead.", true);
+    if (toAcc === currentUser.accNo) {
+        showMsg("Cannot transfer to your own account! Use deposit instead.", true);
         return;
     }
-    if (!pin) {
-        showToast("Your Security PIN is required to authorize this transfer!", true);
-        return;
-    }
-
-    const payload = {
-        from: currentAccount.accNo,
-        to: target,
-        amount: amount,
-        pin: pin
-    };
 
     fetch("/api/transfer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({ from: currentUser.accNo, to: toAcc, amount: amt, pin: pin })
     })
-    .then(res => res.json())
-    .then(res => {
-        if (res.success) {
-            showToast("Successfully transferred ₹" + amount + " to " + target + "!", false);
+    .then(function(res) {
+        return res.json();
+    })
+    .then(function(data) {
+        if (data.success) {
+            showMsg(data.message || "Transfer completed!", false);
+            currentUser.balance = currentUser.balance - parseFloat(amt);
+            updateUI();
             e.target.reset();
-            refreshUserData();
         } else {
-            showToast(res.message || "Transfer denied! Check recipient or PIN.", true);
+            showMsg(data.message || "Transfer failed!", true);
         }
     })
-    .catch(err => showToast("Network error: " + err, true));
+    .catch(function(err) {
+        showMsg("Error: " + err, true);
+    });
 }
 
-// ==========================================
-// 6. PASSBOOK & SAVED BENEFICIARIES
-// ==========================================
-function loadMyPassbook() {
+// 9. Fetch Passbook Transactions (filter by currentUser)
+function fetchPassbook() {
     fetch("/api/transactions")
-        .then(res => res.json())
-        .then(txns => {
-            myTransactions = txns.filter(t => t.accNo.toUpperCase() === currentAccount.accNo.toUpperCase());
-            const tbody = document.getElementById("passbook-tbody");
-            if (myTransactions.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="empty-state">No transactions recorded on this account yet.</td></tr>`;
-                return;
+    .then(function(res) {
+        return res.json();
+    })
+    .then(function(txns) {
+        let tbody = document.getElementById("passbookTbody");
+        let myTxns = [];
+
+        for (let i = 0; i < txns.length; i++) {
+            if (txns[i].accNo.toUpperCase() === currentUser.accNo.toUpperCase()) {
+                myTxns.push(txns[i]);
             }
+        }
 
-            const reversed = [...myTransactions].reverse();
-            tbody.innerHTML = reversed.map(t => `
-                <tr>
-                    <td><strong>#${t.id}</strong></td>
-                    <td><span class="badge ${t.type.toLowerCase()}">${t.type}</span></td>
-                    <td class="masked">₹${t.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                    <td class="masked">₹${t.balance.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                    <td>${t.remark}</td>
-                </tr>
-            `).join("");
-        });
+        if (myTxns.length === 0) {
+            tbody.innerHTML = "<tr><td colspan='5' style='text-align:center;'>No transactions yet.</td></tr>";
+            return;
+        }
+
+        let html = "";
+        for (let i = myTxns.length - 1; i >= 0; i--) {
+            let t = myTxns[i];
+            html += "<tr>";
+            html += "<td>#" + t.id + "</td>";
+            html += "<td><strong>" + t.type + "</strong></td>";
+            html += "<td>Rs " + parseFloat(t.amount).toFixed(2) + "</td>";
+            html += "<td>Rs " + parseFloat(t.balance).toFixed(2) + "</td>";
+            html += "<td>" + t.remark + "</td>";
+            html += "</tr>";
+        }
+        tbody.innerHTML = html;
+    });
 }
 
-function getSavedBeneficiaries() {
-    if (!currentAccount) return [];
-    const raw = localStorage.getItem("apex_bens_" + currentAccount.accNo);
-    return raw ? JSON.parse(raw) : [];
-}
-
-function saveBeneficiariesList(list) {
-    if (!currentAccount) return;
-    localStorage.setItem("apex_bens_" + currentAccount.accNo, JSON.stringify(list));
-}
+// 10. Beneficiaries (saved in local memory array)
+let beneficiariesList = [];
 
 function handleAddBeneficiary(e) {
     e.preventDefault();
-    const name = document.getElementById("ben-name").value.trim();
-    const accNo = document.getElementById("ben-acc").value.trim().toUpperCase();
+    let name = document.getElementById("benName").value.trim();
+    let accNo = document.getElementById("benAcc").value.trim().toUpperCase();
 
-    if (accNo === currentAccount.accNo.toUpperCase()) {
-        showToast("You cannot add your own account as a beneficiary!", true);
+    if (accNo === currentUser.accNo) {
+        showMsg("You cannot add your own account as a beneficiary!", true);
         return;
     }
 
-    const list = getSavedBeneficiaries();
-    if (list.some(b => b.accNo === accNo)) {
-        showToast("This beneficiary is already in your saved list!", true);
-        return;
+    for (let i = 0; i < beneficiariesList.length; i++) {
+        if (beneficiariesList[i].accNo === accNo) {
+            showMsg("Beneficiary already added!", true);
+            return;
+        }
     }
 
-    list.push({ name, accNo });
-    saveBeneficiariesList(list);
-    showToast("Beneficiary '" + name + "' added successfully!", false);
+    beneficiariesList.push({ name: name, accNo: accNo });
+    showMsg("Beneficiary saved!", false);
     e.target.reset();
     renderBeneficiaries();
 }
 
-function removeBeneficiary(index) {
-    const list = getSavedBeneficiaries();
-    const removed = list.splice(index, 1);
-    saveBeneficiariesList(list);
-    showToast("Removed beneficiary " + (removed[0] ? removed[0].name : ""), false);
+function deleteBeneficiary(index) {
+    beneficiariesList.splice(index, 1);
+    showMsg("Beneficiary removed.", false);
     renderBeneficiaries();
 }
 
 function renderBeneficiaries() {
-    const tbody = document.getElementById("beneficiary-tbody");
-    const list = getSavedBeneficiaries();
-
-    if (list.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="3" class="empty-state">No saved beneficiaries yet. Add your first one above!</td></tr>`;
+    let tbody = document.getElementById("benTbody");
+    if (beneficiariesList.length === 0) {
+        tbody.innerHTML = "<tr><td colspan='3' style='text-align:center;'>No saved beneficiaries yet.</td></tr>";
         return;
     }
 
-    tbody.innerHTML = list.map((b, idx) => `
-        <tr>
-            <td><strong>${b.name}</strong></td>
-            <td>${b.accNo}</td>
-            <td style="display:flex;gap:8px;">
-                <button class="btn-small" onclick="quickSelectTransfer('${b.accNo}')">Transfer</button>
-                <button class="btn-small" onclick="quickSelectDeposit('${b.accNo}')">Deposit</button>
-                <button class="btn-small" style="color:#ef4444;border-color:#7f1d1d;" onclick="removeBeneficiary(${idx})">Delete</button>
-            </td>
-        </tr>
-    `).join("");
+    let html = "";
+    for (let i = 0; i < beneficiariesList.length; i++) {
+        let b = beneficiariesList[i];
+        html += "<tr>";
+        html += "<td>" + b.name + "</td>";
+        html += "<td>" + b.accNo + "</td>";
+        html += "<td>";
+        html += "<button class='btnBlue' style='padding:4px 8px; font-size:12px; margin-right:5px;' onclick='quickTransfer(\"" + b.accNo + "\")'>Transfer</button>";
+        html += "<button class='btnRed' onclick='deleteBeneficiary(" + i + ")'>Delete</button>";
+        html += "</td>";
+        html += "</tr>";
+    }
+    tbody.innerHTML = html;
 }
 
-function quickSelectTransfer(targetAccNo) {
-    switchSection("transfers");
-    document.getElementById("transfer-target").value = targetAccNo;
-    document.getElementById("transfer-amt").focus();
-}
-
-function quickSelectDeposit(targetAccNo) {
-    switchSection("deposit-cash");
-    document.getElementById("deposit-target-acc").value = targetAccNo;
-    document.getElementById("deposit-amount").focus();
-}
-
-function showToast(msg, isError) {
-    const toast = document.getElementById("toast");
-    toast.innerText = msg;
-    toast.className = "toast " + (isError ? "error" : "");
-    toast.classList.remove("hide");
-    setTimeout(() => { toast.classList.add("hide"); }, 4000);
+function quickTransfer(accNo) {
+    showSection("transfer");
+    document.getElementById("transToAcc").value = accNo;
 }

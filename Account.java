@@ -1,10 +1,8 @@
-// Base Account class - abstract class
-
 public abstract class Account {
     String accNo;
     String name;
     String email;
-    String pin; // 4-digit security PIN for withdrawals and transfers
+    String pin;
     double balance;
 
     public Account(String accNo, String name, String email, String pin, double balance) throws InvalidAmountException {
@@ -31,7 +29,6 @@ public abstract class Account {
         System.out.println("New balance: Rs " + balance);
     }
 
-    // abstract method to be overridden
     public abstract void withdraw(double amt) throws InsufficientBalanceException, InvalidAmountException;
     public abstract String getAccountType();
 

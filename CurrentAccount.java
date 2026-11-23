@@ -1,7 +1,5 @@
-// Current account for business with overdraft
-
 public class CurrentAccount extends Account {
-    double limit; // overdraft limit
+    double limit;
 
     public CurrentAccount(String accNo, String name, String email, String pin, double balance, double limit) 
             throws InvalidAmountException {
@@ -13,7 +11,6 @@ public class CurrentAccount extends Account {
         if (amt <= 0) {
             throw new InvalidAmountException("Enter valid amount");
         }
-        // checking overdraft
         if (balance - amt < -limit) {
             throw new InsufficientBalanceException("Overdraft limit reached! You can only withdraw up to Rs " + (balance + limit));
         }

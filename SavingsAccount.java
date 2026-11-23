@@ -1,5 +1,3 @@
-// Savings Account with min balance rule
-
 public class SavingsAccount extends Account {
     double minBal = 1000.0;
 

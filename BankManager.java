@@ -4,16 +4,12 @@ import java.util.Comparator;
 import java.util.HashMap;
 
 public class BankManager {
-    // using hashmap for quick account lookup
     HashMap<String, Account> map = new HashMap<String, Account>();
-
-    // using arraylist to store all transactions
     ArrayList<Transaction> txns = new ArrayList<Transaction>();
 
     int accCount = 101;
     int txnCount = 1;
 
-    // method to add account with PIN and duplicate email check
     public Account openAccount(String name, String email, String pin, String type, double bal, double limit) throws Exception {
         if (name == null || name.trim().equals("")) {
             throw new Exception("Name cannot be empty!");
@@ -25,7 +21,6 @@ public class BankManager {
             throw new Exception("Security PIN must be at least 4 digits!");
         }
 
-        // check if an account with this email already exists
         for (Account existing : map.values()) {
             if (existing.email.equalsIgnoreCase(email.trim())) {
                 throw new Exception("An account with email '" + email + "' already exists! (Account No: " + existing.accNo + ")");
@@ -44,7 +39,6 @@ public class BankManager {
 
         map.put(accNo, acc);
 
-        // initial deposit entry
         if (bal > 0) {
             Transaction t = new Transaction(txnCount++, accNo, "CREDIT", bal, bal, "Opening balance");
             txns.add(t);
@@ -65,7 +59,6 @@ public class BankManager {
         }
     }
 
-    // Login with account number and PIN verification
     public Account login(String accNo, String pin) throws Exception {
         Account a = findAccount(accNo);
         if (!a.verifyPin(pin)) {
@@ -74,7 +67,6 @@ public class BankManager {
         return a;
     }
 
-    // Reset PIN using email verification
     public void resetPin(String accNo, String registeredEmail, String newPin) throws Exception {
         Account a = findAccount(accNo);
         if (!a.email.equalsIgnoreCase(registeredEmail.trim())) {
@@ -87,7 +79,6 @@ public class BankManager {
         System.out.println("PIN successfully updated for " + a.accNo);
     }
 
-    // Deposit to ANY account (asks for target account number, no PIN required)
     public void doDeposit(String targetAccNo, double amt, String depositorName) throws Exception {
         Account a = findAccount(targetAccNo);
         a.deposit(amt);
@@ -98,7 +89,6 @@ public class BankManager {
         txns.add(t);
     }
 
-    // Withdrawal requires PIN verification
     public void doWithdraw(String accNo, double amt, String enteredPin) throws Exception {
         Account a = findAccount(accNo);
         if (!a.verifyPin(enteredPin)) {
@@ -109,7 +99,6 @@ public class BankManager {
         txns.add(t);
     }
 
-    // Transfer requires sender's PIN verification
     public void doTransfer(String from, String to, double amt, String senderPin) throws Exception {
         if (from.equalsIgnoreCase(to)) {
             throw new Exception("Source and destination account cannot be same!");
@@ -118,19 +107,15 @@ public class BankManager {
         Account a1 = findAccount(from);
         Account a2 = findAccount(to);
 
-        // verify sender's PIN
         if (!a1.verifyPin(senderPin)) {
             throw new Exception("Incorrect Security PIN! Transfer aborted.");
         }
 
-        // withdraw from first
         a1.withdraw(amt);
 
-        // deposit to second
         try {
             a2.deposit(amt);
         } catch (Exception e) {
-            // rollback
             a1.deposit(amt);
             throw new Exception("Transfer failed: " + e.getMessage());
         }
@@ -159,7 +144,6 @@ public class BankManager {
         }
     }
 
-    // sorting using Comparator interface
     public void showSortedTransactions() {
         if (txns.size() == 0) {
             System.out.println("No transactions to sort.");
@@ -168,7 +152,6 @@ public class BankManager {
 
         ArrayList<Transaction> list = new ArrayList<Transaction>(txns);
 
-        // anonymous class for comparator
         Collections.sort(list, new Comparator<Transaction>() {
             public int compare(Transaction o1, Transaction o2) {
                 if (o1.amount < o2.amount) {

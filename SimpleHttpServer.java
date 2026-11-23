@@ -21,10 +21,7 @@ public class SimpleHttpServer {
         try {
             HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
 
-            // Serve frontend UI
             server.createContext("/", new FileHandler());
-
-            // API endpoints
             server.createContext("/api/accounts", new AccountsHandler());
             server.createContext("/api/create-account", new CreateAccountHandler());
             server.createContext("/api/login", new LoginHandler());
@@ -48,7 +45,6 @@ public class SimpleHttpServer {
             try {
                 String path = exchange.getRequestURI().getPath();
 
-                // If an unknown /api/ route is requested, do NOT return HTML!
                 if (path.startsWith("/api/")) {
                     sendJson(exchange, 404, "{\"success\":false,\"message\":\"API endpoint not found: " + path + "\"}");
                     return;
@@ -137,7 +133,6 @@ public class SimpleHttpServer {
         os.close();
     }
 
-    // 1. Get Accounts (safe overview)
     class AccountsHandler implements HttpHandler {
         public void handle(HttpExchange exchange) {
             try {
@@ -162,7 +157,6 @@ public class SimpleHttpServer {
         }
     }
 
-    // 2. Create Account with duplicate checking
     class CreateAccountHandler implements HttpHandler {
         public void handle(HttpExchange exchange) {
             try {
@@ -182,7 +176,6 @@ public class SimpleHttpServer {
         }
     }
 
-    // 3. Login Handler with PIN verification
     class LoginHandler implements HttpHandler {
         public void handle(HttpExchange exchange) {
             try {
@@ -199,7 +192,6 @@ public class SimpleHttpServer {
         }
     }
 
-    // 4. Reset PIN / Forgot Password Handler
     class ResetPinHandler implements HttpHandler {
         public void handle(HttpExchange exchange) {
             try {
@@ -216,7 +208,6 @@ public class SimpleHttpServer {
         }
     }
 
-    // 5. Deposit to ANY Account Number
     class DepositHandler implements HttpHandler {
         public void handle(HttpExchange exchange) {
             try {
@@ -234,7 +225,6 @@ public class SimpleHttpServer {
         }
     }
 
-    // 6. Withdraw requires PIN
     class WithdrawHandler implements HttpHandler {
         public void handle(HttpExchange exchange) {
             try {
@@ -252,7 +242,6 @@ public class SimpleHttpServer {
         }
     }
 
-    // 7. Transfer requires Sender's PIN
     class TransferHandler implements HttpHandler {
         public void handle(HttpExchange exchange) {
             try {
@@ -270,7 +259,6 @@ public class SimpleHttpServer {
         }
     }
 
-    // 8. Transactions
     class TransactionsHandler implements HttpHandler {
         public void handle(HttpExchange exchange) {
             try {
@@ -295,7 +283,6 @@ public class SimpleHttpServer {
         }
     }
 
-    // 9. Report
     class ReportHandler implements HttpHandler {
         public void handle(HttpExchange exchange) {
             try {

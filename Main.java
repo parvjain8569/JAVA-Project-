@@ -5,7 +5,6 @@ public class Main {
         Scanner sc = new Scanner(System.in);
         BankManager bank = new BankManager();
 
-        // start web server for frontend
         SimpleHttpServer server = new SimpleHttpServer(bank);
         server.start(8080);
 
@@ -25,7 +24,7 @@ public class Main {
 
             try {
                 ch = sc.nextInt();
-                sc.nextLine(); // clear buffer
+                sc.nextLine();
 
                 switch (ch) {
                     case 1:
@@ -131,7 +130,7 @@ public class Main {
                 System.out.println("Search Error: " + e.getMessage());
             } catch (Exception e) {
                 System.out.println("Error: " + e.getMessage());
-                sc.nextLine(); // clear buffer if error
+                sc.nextLine();
             }
         }
 

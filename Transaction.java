@@ -1,5 +1,3 @@
-// Transaction record class
-
 public class Transaction {
     int id;
     String accNo;

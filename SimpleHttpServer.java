@@ -22,7 +22,6 @@ public class SimpleHttpServer {
             HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
 
             server.createContext("/", new FileHandler());
-            server.createContext("/api/accounts", new AccountsHandler());
             server.createContext("/api/create-account", new CreateAccountHandler());
             server.createContext("/api/login", new LoginHandler());
             server.createContext("/api/reset-pin", new ResetPinHandler());
@@ -94,33 +93,48 @@ public class SimpleHttpServer {
     }
 
     private static HashMap<String, String> parseParams(String body) {
-        HashMap<String, String> map = new HashMap<String, String>();
-        if (body == null || body.trim().equals("")) return map;
-
-        if (body.trim().startsWith("{")) {
-            String clean = body.replace("{", "").replace("}", "").replace("\"", "");
-            String[] pairs = clean.split(",");
-            for (int i = 0; i < pairs.length; i++) {
-                String[] kv = pairs[i].split(":");
-                if (kv.length >= 2) {
-                    map.put(kv[0].trim(), kv[1].trim());
+        HashMap<String, String> values = new HashMap<String, String>();
+        if (body == null || body.trim().length() == 0) return values;
+        String clean = body.trim();
+        if (!clean.startsWith("{")) return values;
+        int i = 1;
+        while (i < clean.length()) {
+            while (i < clean.length() && (Character.isWhitespace(clean.charAt(i)) || clean.charAt(i) == ',')) i++;
+            if (i >= clean.length() || clean.charAt(i) == '}') break;
+            if (clean.charAt(i) != '"') break;
+            StringBuilder key = new StringBuilder();
+            i++;
+            while (i < clean.length() && clean.charAt(i) != '"') {
+                if (clean.charAt(i) == '\\' && i + 1 < clean.length()) i++;
+                key.append(clean.charAt(i++));
+            }
+            i++;
+            while (i < clean.length() && (Character.isWhitespace(clean.charAt(i)) || clean.charAt(i) == ':')) i++;
+            StringBuilder value = new StringBuilder();
+            if (i < clean.length() && clean.charAt(i) == '"') {
+                i++;
+                while (i < clean.length() && clean.charAt(i) != '"') {
+                    if (clean.charAt(i) == '\\' && i + 1 < clean.length()) {
+                        i++;
+                        char escaped = clean.charAt(i);
+                        if (escaped == 'n') value.append('\n');
+                        else if (escaped == 't') value.append('\t');
+                        else value.append(escaped);
+                        i++;
+                    } else value.append(clean.charAt(i++));
                 }
+                i++;
+            } else {
+                while (i < clean.length() && clean.charAt(i) != ',' && clean.charAt(i) != '}') value.append(clean.charAt(i++));
             }
-            return map;
+            values.put(key.toString(), value.toString().trim());
         }
+        return values;
+    }
 
-        String[] pairs = body.split("&");
-        for (int i = 0; i < pairs.length; i++) {
-            String[] kv = pairs[i].split("=");
-            if (kv.length == 2) {
-                try {
-                    String k = URLDecoder.decode(kv[0], "UTF-8");
-                    String v = URLDecoder.decode(kv[1], "UTF-8");
-                    map.put(k, v);
-                } catch (Exception ignored) {}
-            }
-        }
-        return map;
+    private static String jsonEscape(String value) {
+        if (value == null) return "";
+        return value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r");
     }
 
     private static void sendJson(HttpExchange exchange, int code, String json) throws Exception {
@@ -184,7 +198,7 @@ public class SimpleHttpServer {
                 String pin = p.get("pin");
 
                 Account a = bank.login(accNo, pin);
-                String json = "{\"success\":true,\"accNo\":\"" + a.accNo + "\",\"name\":\"" + a.name + "\",\"email\":\"" + a.email + "\",\"type\":\"" + a.getAccountType() + "\",\"balance\":" + a.balance + "}";
+                String json = "{\"success\":true,\"accNo\":\"" + jsonEscape(a.accNo) + "\",\"name\":\"" + jsonEscape(a.name) + "\",\"email\":\"" + jsonEscape(a.email) + "\",\"type\":\"" + jsonEscape(a.getAccountType()) + "\",\"balance\":" + a.balance + "}";
                 sendJson(exchange, 200, json);
             } catch (Exception e) {
                 try { sendJson(exchange, 400, "{\"success\":false,\"message\":\"" + e.getMessage() + "\"}"); } catch (Exception ignored) {}
@@ -262,17 +276,40 @@ public class SimpleHttpServer {
     class TransactionsHandler implements HttpHandler {
         public void handle(HttpExchange exchange) {
             try {
+                String query = exchange.getRequestURI().getRawQuery();
+                String requestedAccount = null;
+                if (query != null) {
+                    String[] parts = query.split("&");
+                    for (int i = 0; i < parts.length; i++) {
+                        if (parts[i].startsWith("accNo=")) requestedAccount = URLDecoder.decode(parts[i].substring(6), "UTF-8");
+                    }
+                }
+                String enteredPin = null;
+                if (query != null) {
+                    String[] parts = query.split("&");
+                    for (int i = 0; i < parts.length; i++) {
+                        if (parts[i].startsWith("pin=")) enteredPin = URLDecoder.decode(parts[i].substring(4), "UTF-8");
+                    }
+                }
+                if (requestedAccount == null || requestedAccount.trim().length() == 0 || enteredPin == null) {
+                    sendJson(exchange, 400, "{\"success\":false,\"message\":\"Account number and PIN are required.\"}");
+                    return;
+                }
+                bank.login(requestedAccount, enteredPin);
                 StringBuilder sb = new StringBuilder("[");
+                boolean first = true;
                 for (int i = 0; i < bank.txns.size(); i++) {
                     Transaction t = bank.txns.get(i);
-                    if (i > 0) sb.append(",");
+                    if (!t.accNo.equalsIgnoreCase(requestedAccount.trim())) continue;
+                    if (!first) sb.append(",");
+                    first = false;
                     sb.append("{")
                       .append("\"id\":").append(t.id).append(",")
                       .append("\"accNo\":\"").append(t.accNo).append("\",")
                       .append("\"type\":\"").append(t.type).append("\",")
                       .append("\"amount\":").append(t.amount).append(",")
                       .append("\"balance\":").append(t.remBal).append(",")
-                      .append("\"remark\":\"").append(t.remark).append("\"")
+                      .append("\"remark\":\"").append(jsonEscape(t.remark)).append("\"")
                       .append("}");
                 }
                 sb.append("]");

@@ -1,4 +1,5 @@
 import java.util.Scanner;
+import java.util.concurrent.CountDownLatch;
 
 public class Main {
     public static void main(String[] args) {
@@ -6,12 +7,28 @@ public class Main {
         BankManager bank = new BankManager();
 
         SimpleHttpServer server = new SimpleHttpServer(bank);
-        server.start(8080);
+        int port = 8080;
+        if (args.length > 0) {
+            try { port = Integer.parseInt(args[0]); } catch (NumberFormatException ignored) { }
+        }
+        server.start(port);
+
+        // Web-only mode is used by start_backend.bat so students do not
+        // have to interact with the separate console banking menu.
+        if (args.length > 1 && "web".equalsIgnoreCase(args[1])) {
+            System.out.println("ApexBank is ready. Open http://localhost:" + port + " in your browser.");
+            try {
+                new CountDownLatch(1).await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return;
+        }
 
         int ch = 0;
 
         while (ch != 8) {
-            System.out.println("\n*** BANK SIMULATOR MENU ***");
+            System.out.println("\n*** APEXBANK SIMULATOR MENU ***");
             System.out.println("1. Open Account");
             System.out.println("2. Deposit Money (Enter Any Account No)");
             System.out.println("3. Withdraw Money (Requires PIN)");

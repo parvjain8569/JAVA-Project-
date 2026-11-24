@@ -9,24 +9,8 @@ public class BankManager {
 
     int accCount = 101;
     int txnCount = 1;
-    DatabaseManager database;
 
     public BankManager() {
-        database = new DatabaseManager();
-        if (database.isEnabled()) {
-            try {
-                database.load(this);
-                System.out.println("MySQL database connected. Existing ApexBank data loaded.");
-            } catch (Exception e) {
-                throw new RuntimeException("Could not connect to MySQL. Check db.properties and make sure MySQL is running. " + e.getMessage());
-            }
-        } else {
-            System.out.println("Running in demo mode (in-memory). Configure db.properties to enable MySQL storage.");
-        }
-    }
-
-    private void saveData() throws Exception {
-        if (database != null && database.isEnabled()) database.save(this);
     }
 
     public Account openAccount(String name, String email, String pin, String type, double bal, double limit) throws Exception {
@@ -63,7 +47,6 @@ public class BankManager {
             txns.add(t);
         }
 
-        saveData();
         return acc;
     }
 
@@ -96,7 +79,6 @@ public class BankManager {
             throw new Exception("New Security PIN must be at least 4 digits!");
         }
         a.pin = newPin.trim();
-        saveData();
         System.out.println("PIN successfully updated for " + a.accNo);
     }
 
@@ -108,7 +90,6 @@ public class BankManager {
                       : "Cash deposited";
         Transaction t = new Transaction(txnCount++, a.accNo, "DEPOSIT", amt, a.balance, note);
         txns.add(t);
-        saveData();
     }
 
     public void doWithdraw(String accNo, double amt, String enteredPin) throws Exception {
@@ -119,7 +100,6 @@ public class BankManager {
         a.withdraw(amt);
         Transaction t = new Transaction(txnCount++, accNo, "WITHDRAW", amt, a.balance, "Self withdrawal");
         txns.add(t);
-        saveData();
     }
 
     public void doTransfer(String from, String to, double amt, String senderPin) throws Exception {
@@ -148,7 +128,6 @@ public class BankManager {
 
         txns.add(t1);
         txns.add(t2);
-        saveData();
 
         System.out.println("Transfer successful!");
     }
